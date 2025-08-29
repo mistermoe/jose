@@ -17,15 +17,16 @@ const (
 
 // GeneratePrivateKey generates a private key using the algorithm specified by algorithmID.
 func GeneratePrivateKey(algorithmID string) (jwk.JWK, error) {
-	if ecdsa.SupportsAlgorithmID(algorithmID) {
+	switch {
+	case ecdsa.SupportsAlgorithmID(algorithmID):
 		return ecdsa.GeneratePrivateKey(algorithmID)
-	} else if eddsa.SupportsAlgorithmID(algorithmID) {
+	case eddsa.SupportsAlgorithmID(algorithmID):
 		return eddsa.GeneratePrivateKey(algorithmID)
-	} else if rsa.SupportsAlgorithmID(algorithmID) {
+	case rsa.SupportsAlgorithmID(algorithmID):
 		return rsa.GeneratePrivateKey(algorithmID)
+	default:
+		return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
 	}
-
-	return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
 }
 
 // GetPublicKey returns the public key corresponding to the given private key.
@@ -86,15 +87,16 @@ func GetJWA(jwk jwk.JWK) (string, error) {
 
 // BytesToPublicKey converts the given bytes to a public key based on the algorithm specified by algorithmID.
 func BytesToPublicKey(algorithmID string, input []byte) (jwk.JWK, error) {
-	if ecdsa.SupportsAlgorithmID(algorithmID) {
+	switch {
+	case ecdsa.SupportsAlgorithmID(algorithmID):
 		return ecdsa.BytesToPublicKey(algorithmID, input)
-	} else if eddsa.SupportsAlgorithmID(algorithmID) {
+	case eddsa.SupportsAlgorithmID(algorithmID):
 		return eddsa.BytesToPublicKey(algorithmID, input)
-	} else if rsa.SupportsAlgorithmID(algorithmID) {
+	case rsa.SupportsAlgorithmID(algorithmID):
 		return rsa.BytesToPublicKey(algorithmID, input)
+	default:
+		return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
 	}
-
-	return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
 }
 
 // PublicKeyToBytes converts the provided public key to bytes.

@@ -57,7 +57,7 @@ func TestRS256VerifyInvalidSignature(t *testing.T) {
 	// Try to verify invalid signature
 	invalidSignature := []byte("invalid signature")
 	valid, err := rsa.RS256Verify(payload, invalidSignature, publicKey)
-	assert.NoError(t, err) // Should not error, just return false
+	assert.Error(t, err)
 	assert.False(t, valid, "invalid signature should not verify")
 }
 
@@ -79,7 +79,7 @@ func TestRS256VerifyWithWrongPayload(t *testing.T) {
 	// Try to verify with different payload
 	wrongPayload := []byte("goodbye world")
 	valid, err := rsa.RS256Verify(wrongPayload, signature, publicKey)
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	assert.False(t, valid, "signature should not verify with wrong payload")
 }
 

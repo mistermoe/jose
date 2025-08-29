@@ -63,10 +63,12 @@ func Verify(payload []byte, signature []byte, publicKey jwk.JWK) (bool, error) {
 // GetJWA returns the [JWA] for the given RSA key
 //
 // [JWA]: https://datatracker.ietf.org/doc/html/rfc7518
-func GetJWA(jwk jwk.JWK) (string, error) {
-	// For now, we only support RS256
-	// In the future, we might determine this from key size or store it in the JWK
-	return RS256JWA, nil
+func GetJWA(key jwk.JWK) (string, error) {
+	if key.KTY != KeyType {
+		return "", fmt.Errorf("unsupported key type: %s", key.KTY)
+	}
+
+	return key.ALG, nil
 }
 
 // BytesToPublicKey deserializes the given byte array into a jwk.JWK for the given cryptographic algorithm.
@@ -91,8 +93,10 @@ func SupportsAlgorithmID(id string) bool {
 }
 
 // AlgorithmID returns the algorithm ID for the given jwk.JWK.
-func AlgorithmID(jwk *jwk.JWK) (string, error) {
-	// For now, we only support RS256
-	// In the future, we might determine this from key size or other factors
-	return RS256AlgorithmID, nil
+func AlgorithmID(key *jwk.JWK) (string, error) {
+	if key.KTY != KeyType {
+		return "", fmt.Errorf("unsupported key type: %s", key.KTY)
+	}
+
+	return key.ALG, nil
 }

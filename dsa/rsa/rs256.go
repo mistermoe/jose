@@ -57,7 +57,7 @@ func RS256Verify(payload []byte, signature []byte, publicKey jwk.JWK) (bool, err
 	hash := sha256.Sum256(payload)
 	err = _rsa.VerifyPKCS1v15(rsaPublicKey, crypto.SHA256, hash[:], signature)
 	if err != nil {
-		return false, nil // Verification failed, but no error in the process
+		return false, err
 	}
 
 	return true, nil
@@ -106,6 +106,7 @@ func rsaPrivateKeyToJWK(privateKey *_rsa.PrivateKey) (jwk.JWK, error) {
 
 	return jwk.JWK{
 		KTY: KeyType,
+		ALG: RS256JWA,
 		N:   n,
 		E:   e,
 		D:   d,
@@ -118,13 +119,13 @@ func rsaPublicKeyToJWK(publicKey *_rsa.PublicKey) (jwk.JWK, error) {
 
 	return jwk.JWK{
 		KTY: KeyType,
+		ALG: RS256JWA,
 		N:   n,
 		E:   e,
 	}, nil
 }
 
 func jwkToRSAPrivateKey(privateKey jwk.JWK) (*_rsa.PrivateKey, error) {
-
 	if privateKey.N == "" || privateKey.E == "" || privateKey.D == "" {
 		return nil, errors.New("n, e, and d must be set for RSA private key")
 	}
