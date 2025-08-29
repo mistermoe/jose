@@ -15,6 +15,7 @@ type JWK struct {
 	ALG string `json:"alg,omitempty"`
 	KTY string `json:"kty,omitempty"`
 	CRV string `json:"crv,omitempty"`
+	KID string `json:"kid,omitempty"`
 	D   string `json:"d,omitempty"`
 	X   string `json:"x,omitempty"`
 	Y   string `json:"y,omitempty"`
