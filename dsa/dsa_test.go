@@ -2,11 +2,13 @@ package dsa_test
 
 import (
 	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/mistermoe/jose/dsa"
 	"github.com/mistermoe/jose/dsa/ecdsa"
 	"github.com/mistermoe/jose/dsa/eddsa"
+	"github.com/mistermoe/jose/dsa/rsa"
 	"github.com/mistermoe/jose/jwk"
 
 	"github.com/alecthomas/assert/v2"
@@ -30,8 +32,8 @@ func TestGeneratePrivateKeyED25519(t *testing.T) {
 	}
 
 	assert.NoError(t, err)
-	assert.Equal[string](t, eddsa.ED25519JWACurve, privateJwk.CRV)
-	assert.Equal[string](t, eddsa.KeyType, privateJwk.KTY)
+	assert.Equal(t, eddsa.ED25519JWACurve, privateJwk.CRV)
+	assert.Equal(t, eddsa.KeyType, privateJwk.KTY)
 	assert.True(t, privateJwk.D != "", "privateJwk.D is empty")
 	assert.True(t, privateJwk.X != "", "privateJwk.X is empty")
 }
@@ -147,4 +149,88 @@ func TestBytesToPublicKey_SECP256K1(t *testing.T) {
 func TestPublicKeyToBytes_UnsupportedKTY(t *testing.T) {
 	_, err := dsa.PublicKeyToBytes(jwk.JWK{KTY: "yolocrypto"})
 	assert.Error(t, err)
+}
+
+func TestGeneratePrivateKeyRS256(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDRS256)
+
+	assert.NoError(t, err)
+	assert.Equal(t, rsa.KeyType, privateJwk.KTY)
+	assert.True(t, privateJwk.N != "", "privateJwk.N is empty")
+	assert.True(t, privateJwk.E != "", "privateJwk.E is empty")
+	assert.True(t, privateJwk.D != "", "privateJwk.D is empty")
+}
+
+func TestSignRS256(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDRS256)
+	assert.NoError(t, err)
+
+	payload := []byte("hello world")
+	signature, err := dsa.Sign(payload, privateJwk)
+
+	assert.NoError(t, err)
+	assert.True(t, len(signature) > 0, "signature is empty")
+}
+
+func TestVerifyRS256(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDRS256)
+	assert.NoError(t, err)
+
+	payload := []byte("hello world")
+	signature, err := dsa.Sign(payload, privateJwk)
+
+	assert.NoError(t, err)
+
+	publicJwk := dsa.GetPublicKey(privateJwk)
+
+	legit, err := dsa.Verify(payload, signature, publicJwk)
+	assert.NoError(t, err)
+
+	assert.True(t, legit, "failed to verify signature")
+}
+
+func TestGetJWARS256(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDRS256)
+	assert.NoError(t, err)
+
+	jwa, err := dsa.GetJWA(privateJwk)
+	assert.NoError(t, err)
+	assert.Equal(t, rsa.RS256JWA, jwa)
+}
+
+func TestVerifyWithProvidedJWTKeys(t *testing.T) {
+	// Test with the provided JWT verification keys
+	testKeys := []jwk.JWK{
+		{
+			KTY: "RSA",
+			ALG: rsa.RS256JWA,
+			N:   "tH5pdWojgagY73Hy2WtH8vhoKpGAmP01E1CSuZn-02U_hTjFzAoDAiT6d7CcP14VHg4AGRWY82NCw5HL9vapXilR0Y1g3lFWwRCU1oXjApzhkTt3RVbM-jPWr5aEC_QN6yTE9qK1lwz1_x03rPMOuSP7BcDQCNazPLPwIDxMtzT47asH25OrtiN-nFA_imMAMrqKEBhmYtutGqKqhs6vI_PsNHxLFyR26Z-CgGrQ21Eensu0jl29vl0uYBfVUG4XpzOp7A5_rwVPaHx5ZibUSVG-eVu0RYObSKJTXQg8NKs3bEUHk9Z563PgTA9mf5VsvenNm6DxCJrvztxKvhg1Nw",
+			E:   "AQAB",
+		},
+		{
+			KTY: "RSA",
+			ALG: rsa.RS256JWA,
+			N:   "v85Io5Rp7vwbSlkuAowWVcfUxZdPckijmLAZ3WEl3nTUTkz9YfmKJUiqdZMRuJxL50F3TRBKDxvfFbWX602sPTShoK6H2pdbQNrKsGV_KIlLLsIkcVnG-KNuY-ZnkZ9ppCH9yqjGw08imHlLsIngSK8VF03nCwUiv_VtZ27FltUttRxkoZGxCYX0-MRicIXPNKILml-xmknGNLsDCvAYqhbg3tZRKi1dZuHLhCb_YTov5YhprvVzm5OagvrvZuia_qilk-ctgqRJRPFGrVm75gkV4WdwxQQukCPqf5UfIopdOAB4wBdovddX3jjpjphq8-gKMPO-t_6siCt1xETSOQ",
+			E:   "AQAB",
+		},
+	}
+
+	for i, key := range testKeys {
+		t.Run(fmt.Sprintf("Key%d", i+1), func(t *testing.T) {
+			// Test that we can get the JWA for these keys
+			jwa, err := dsa.GetJWA(key)
+			assert.NoError(t, err)
+			assert.Equal(t, rsa.RS256JWA, jwa)
+
+			// Test that we can convert to bytes and back
+			keyBytes, err := dsa.PublicKeyToBytes(key)
+			assert.NoError(t, err)
+			assert.True(t, len(keyBytes) > 0, "key bytes should not be empty")
+
+			// Test algorithm ID
+			algID, err := dsa.AlgorithmID(&key)
+			assert.NoError(t, err)
+			assert.Equal(t, rsa.RS256AlgorithmID, algID)
+		})
+	}
 }

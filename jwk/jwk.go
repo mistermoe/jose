@@ -18,18 +18,43 @@ type JWK struct {
 	D   string `json:"d,omitempty"`
 	X   string `json:"x,omitempty"`
 	Y   string `json:"y,omitempty"`
+	// RSA key parameters
+	N string `json:"n,omitempty"` // RSA modulus
+	E string `json:"e,omitempty"` // RSA exponent
 }
 
 // ComputeThumbprint computes the JWK thumbprint as per RFC7638 (https://tools.ietf.org/html/rfc7638)
 func (j JWK) ComputeThumbprint() (string, error) {
-	thumbprintPayload := map[string]interface{}{
-		"crv": j.CRV,
-		"kty": j.KTY,
-		"x":   j.X,
-	}
+	var thumbprintPayload map[string]interface{}
 
-	if j.Y != "" {
-		thumbprintPayload["y"] = j.Y
+	switch j.KTY {
+	case "RSA":
+		// For RSA keys, use "e", "kty", "n" as per RFC 7638
+		thumbprintPayload = map[string]interface{}{
+			"e":   j.E,
+			"kty": j.KTY,
+			"n":   j.N,
+		}
+	case "EC", "OKP":
+		// For elliptic curve and OKP keys, use existing logic
+		thumbprintPayload = map[string]interface{}{
+			"crv": j.CRV,
+			"kty": j.KTY,
+			"x":   j.X,
+		}
+		if j.Y != "" {
+			thumbprintPayload["y"] = j.Y
+		}
+	default:
+		// Fallback to existing logic for unknown key types
+		thumbprintPayload = map[string]interface{}{
+			"crv": j.CRV,
+			"kty": j.KTY,
+			"x":   j.X,
+		}
+		if j.Y != "" {
+			thumbprintPayload["y"] = j.Y
+		}
 	}
 
 	bytes, err := json.Marshal(thumbprintPayload)
