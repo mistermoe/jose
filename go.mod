@@ -1,6 +1,6 @@
 module github.com/mistermoe/jose
 
-go 1.25.0
+go 1.24.2
 
 require (
 	github.com/alecthomas/assert/v2 v2.11.0
