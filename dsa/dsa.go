@@ -5,12 +5,14 @@ import (
 
 	"github.com/mistermoe/jose/dsa/ecdsa"
 	"github.com/mistermoe/jose/dsa/eddsa"
+	"github.com/mistermoe/jose/dsa/rsa"
 	"github.com/mistermoe/jose/jwk"
 )
 
 const (
 	AlgorithmIDSECP256K1 = ecdsa.SECP256K1AlgorithmID
 	AlgorithmIDED25519   = eddsa.ED25519AlgorithmID
+	AlgorithmIDRS256     = rsa.RS256AlgorithmID
 )
 
 // GeneratePrivateKey generates a private key using the algorithm specified by algorithmID.
@@ -19,6 +21,8 @@ func GeneratePrivateKey(algorithmID string) (jwk.JWK, error) {
 		return ecdsa.GeneratePrivateKey(algorithmID)
 	} else if eddsa.SupportsAlgorithmID(algorithmID) {
 		return eddsa.GeneratePrivateKey(algorithmID)
+	} else if rsa.SupportsAlgorithmID(algorithmID) {
+		return rsa.GeneratePrivateKey(algorithmID)
 	}
 
 	return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
@@ -31,6 +35,8 @@ func GetPublicKey(privateKey jwk.JWK) jwk.JWK {
 		return ecdsa.GetPublicKey(privateKey)
 	case eddsa.KeyType:
 		return eddsa.GetPublicKey(privateKey)
+	case rsa.KeyType:
+		return rsa.GetPublicKey(privateKey)
 	default:
 		return jwk.JWK{}
 	}
@@ -43,6 +49,8 @@ func Sign(payload []byte, jwk jwk.JWK) ([]byte, error) {
 		return ecdsa.Sign(payload, jwk)
 	case eddsa.KeyType:
 		return eddsa.Sign(payload, jwk)
+	case rsa.KeyType:
+		return rsa.Sign(payload, jwk)
 	default:
 		return nil, fmt.Errorf("unsupported key type: %s", jwk.KTY)
 	}
@@ -55,6 +63,8 @@ func Verify(payload []byte, signature []byte, jwk jwk.JWK) (bool, error) {
 		return ecdsa.Verify(payload, signature, jwk)
 	case eddsa.KeyType:
 		return eddsa.Verify(payload, signature, jwk)
+	case rsa.KeyType:
+		return rsa.Verify(payload, signature, jwk)
 	default:
 		return false, fmt.Errorf("unsupported key type: %s", jwk.KTY)
 	}
@@ -67,6 +77,8 @@ func GetJWA(jwk jwk.JWK) (string, error) {
 		return ecdsa.GetJWA(jwk)
 	case eddsa.KeyType:
 		return eddsa.GetJWA(jwk)
+	case rsa.KeyType:
+		return rsa.GetJWA(jwk)
 	default:
 		return "", fmt.Errorf("unsupported key type: %s", jwk.KTY)
 	}
@@ -78,6 +90,8 @@ func BytesToPublicKey(algorithmID string, input []byte) (jwk.JWK, error) {
 		return ecdsa.BytesToPublicKey(algorithmID, input)
 	} else if eddsa.SupportsAlgorithmID(algorithmID) {
 		return eddsa.BytesToPublicKey(algorithmID, input)
+	} else if rsa.SupportsAlgorithmID(algorithmID) {
+		return rsa.BytesToPublicKey(algorithmID, input)
 	}
 
 	return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
@@ -90,6 +104,8 @@ func PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 		return ecdsa.PublicKeyToBytes(publicKey)
 	case eddsa.KeyType:
 		return eddsa.PublicKeyToBytes(publicKey)
+	case rsa.KeyType:
+		return rsa.PublicKeyToBytes(publicKey)
 	default:
 		return nil, fmt.Errorf("unsupported key type: %s", publicKey.KTY)
 	}
@@ -102,6 +118,8 @@ func AlgorithmID(jwk *jwk.JWK) (string, error) {
 		return ecdsa.AlgorithmID(jwk)
 	case eddsa.KeyType:
 		return eddsa.AlgorithmID(jwk)
+	case rsa.KeyType:
+		return rsa.AlgorithmID(jwk)
 	default:
 		return "", fmt.Errorf("unsupported key type: %s", jwk.KTY)
 	}
