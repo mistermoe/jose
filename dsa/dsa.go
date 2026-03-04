@@ -11,6 +11,7 @@ import (
 
 const (
 	AlgorithmIDSECP256K1 = ecdsa.SECP256K1AlgorithmID
+	AlgorithmIDSECP384R1 = ecdsa.SECP384R1AlgorithmID
 	AlgorithmIDED25519   = eddsa.ED25519AlgorithmID
 	AlgorithmIDRS256     = rsa.RS256AlgorithmID
 )

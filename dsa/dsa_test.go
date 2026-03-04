@@ -38,6 +38,53 @@ func TestGeneratePrivateKeyED25519(t *testing.T) {
 	assert.True(t, privateJwk.X != "", "privateJwk.X is empty")
 }
 
+func TestGeneratePrivateKeySECP384R1(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDSECP384R1)
+
+	assert.NoError(t, err)
+	assert.Equal[string](t, ecdsa.SECP384R1JWACurve, privateJwk.CRV)
+	assert.Equal[string](t, ecdsa.KeyType, privateJwk.KTY)
+	assert.True(t, privateJwk.D != "", "privateJwk.D is empty")
+	assert.True(t, privateJwk.X != "", "privateJwk.X is empty")
+	assert.True(t, privateJwk.Y != "", "privateJwk.Y is empty")
+}
+
+func TestSignSECP384R1(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDSECP384R1)
+	assert.NoError(t, err)
+
+	payload := []byte("hello world")
+	signature, err := dsa.Sign(payload, privateJwk)
+
+	assert.NoError(t, err)
+	assert.True(t, len(signature) == 96, "invalid signature length")
+}
+
+func TestVerifySECP384R1(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDSECP384R1)
+	assert.NoError(t, err)
+
+	payload := []byte("hello world")
+	signature, err := dsa.Sign(payload, privateJwk)
+	assert.NoError(t, err)
+
+	publicJwk := dsa.GetPublicKey(privateJwk)
+
+	legit, err := dsa.Verify(payload, signature, publicJwk)
+	assert.NoError(t, err)
+
+	assert.True(t, legit, "failed to verify signature")
+}
+
+func TestGetJWASECP384R1(t *testing.T) {
+	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDSECP384R1)
+	assert.NoError(t, err)
+
+	jwa, err := dsa.GetJWA(privateJwk)
+	assert.NoError(t, err)
+	assert.Equal(t, ecdsa.SECP384R1JWA, jwa)
+}
+
 func TestSignSECP256K1(t *testing.T) {
 	privateJwk, err := dsa.GeneratePrivateKey(dsa.AlgorithmIDSECP256K1)
 	assert.NoError(t, err)
