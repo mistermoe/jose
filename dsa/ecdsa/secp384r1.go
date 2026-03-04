@@ -1,6 +1,7 @@
 package ecdsa
 
 import (
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -14,33 +15,27 @@ import (
 )
 
 const (
-	SECP384R1JWA         string = "ES384"
-	SECP384R1JWACurve    string = "P-384"
-	SECP384R1AlgorithmID string = "secp384r1"
-	SECP384R1KeySize            = 48
-	SECP384R1SignatureSize      = 96
+	SECP384R1JWA           string = "ES384"
+	SECP384R1JWACurve      string = "P-384"
+	SECP384R1AlgorithmID   string = "secp384r1"
+	SECP384R1KeySize              = 48
+	SECP384R1SignatureSize        = 96
 )
 
 func SECP384R1GeneratePrivateKey() (jwk.JWK, error) {
-	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	key, err := ecdh.P384().GenerateKey(rand.Reader)
 	if err != nil {
 		return jwk.JWK{}, fmt.Errorf("failed to generate private key: %w", err)
 	}
 
-	d := key.D.Bytes()
-	x := key.PublicKey.X.Bytes()
-	y := key.PublicKey.Y.Bytes()
-
-	dPadded := padLeft(d, SECP384R1KeySize)
-	xPadded := padLeft(x, SECP384R1KeySize)
-	yPadded := padLeft(y, SECP384R1KeySize)
+	pubBytes := key.PublicKey().Bytes()
 
 	return jwk.JWK{
 		KTY: KeyType,
 		CRV: SECP384R1JWACurve,
-		D:   base64.RawURLEncoding.EncodeToString(dPadded),
-		X:   base64.RawURLEncoding.EncodeToString(xPadded),
-		Y:   base64.RawURLEncoding.EncodeToString(yPadded),
+		D:   base64.RawURLEncoding.EncodeToString(key.Bytes()),
+		X:   base64.RawURLEncoding.EncodeToString(pubBytes[1 : 1+SECP384R1KeySize]),
+		Y:   base64.RawURLEncoding.EncodeToString(pubBytes[1+SECP384R1KeySize:]),
 	}, nil
 }
 
@@ -50,10 +45,21 @@ func SECP384R1Sign(payload []byte, privateKey jwk.JWK) ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode d: %w", err)
 	}
 
-	key := new(ecdsa.PrivateKey)
-	key.Curve = elliptic.P384()
-	key.D = new(big.Int).SetBytes(dBytes)
-	key.PublicKey.X, key.PublicKey.Y = key.Curve.ScalarBaseMult(dBytes)
+	ecdhKey, err := ecdh.P384().NewPrivateKey(padLeft(dBytes, SECP384R1KeySize))
+	if err != nil {
+		return nil, fmt.Errorf("failed to reconstruct private key: %w", err)
+	}
+
+	pubBytes := ecdhKey.PublicKey().Bytes()
+
+	key := &ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{
+			Curve: elliptic.P384(),
+			X:     new(big.Int).SetBytes(pubBytes[1 : 1+SECP384R1KeySize]),
+			Y:     new(big.Int).SetBytes(pubBytes[1+SECP384R1KeySize:]),
+		},
+		D: new(big.Int).SetBytes(dBytes),
+	}
 
 	hash := sha512.Sum384(payload)
 	r, s, err := ecdsa.Sign(rand.Reader, key, hash[:])
@@ -61,12 +67,9 @@ func SECP384R1Sign(payload []byte, privateKey jwk.JWK) ([]byte, error) {
 		return nil, fmt.Errorf("failed to sign: %w", err)
 	}
 
-	rBytes := padLeft(r.Bytes(), SECP384R1KeySize)
-	sBytes := padLeft(s.Bytes(), SECP384R1KeySize)
-
 	signature := make([]byte, SECP384R1SignatureSize)
-	copy(signature[:SECP384R1KeySize], rBytes)
-	copy(signature[SECP384R1KeySize:], sBytes)
+	copy(signature[:SECP384R1KeySize], padLeft(r.Bytes(), SECP384R1KeySize))
+	copy(signature[SECP384R1KeySize:], padLeft(s.Bytes(), SECP384R1KeySize))
 
 	return signature, nil
 }
@@ -104,19 +107,21 @@ func SECP384R1Verify(payload []byte, signature []byte, publicKey jwk.JWK) (bool,
 }
 
 // SECP384R1BytesToPublicKey converts a P-384 public key to a JWK.
-// Supports both compressed (0x02/0x03 prefix, 49 bytes) and
-// uncompressed (0x04 prefix, 97 bytes) SEC 1 encodings.
+// Accepts the uncompressed point encoding used by [crypto/ecdh.P384].NewPublicKey
+// (0x04 || x || y, 97 bytes).
 func SECP384R1BytesToPublicKey(input []byte) (jwk.JWK, error) {
-	x, y := elliptic.Unmarshal(elliptic.P384(), input)
-	if x == nil {
-		return jwk.JWK{}, errors.New("failed to parse public key")
+	ecdhKey, err := ecdh.P384().NewPublicKey(input)
+	if err != nil {
+		return jwk.JWK{}, fmt.Errorf("failed to parse public key: %w", err)
 	}
+
+	raw := ecdhKey.Bytes()
 
 	return jwk.JWK{
 		KTY: KeyType,
 		CRV: SECP384R1JWACurve,
-		X:   base64.RawURLEncoding.EncodeToString(padLeft(x.Bytes(), SECP384R1KeySize)),
-		Y:   base64.RawURLEncoding.EncodeToString(padLeft(y.Bytes(), SECP384R1KeySize)),
+		X:   base64.RawURLEncoding.EncodeToString(raw[1 : 1+SECP384R1KeySize]),
+		Y:   base64.RawURLEncoding.EncodeToString(raw[1+SECP384R1KeySize:]),
 	}, nil
 }
 
@@ -135,14 +140,17 @@ func SECP384R1PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode y: %w", err)
 	}
 
-	x := new(big.Int).SetBytes(xBytes)
-	y := new(big.Int).SetBytes(yBytes)
+	uncompressed := make([]byte, 0, 1+2*SECP384R1KeySize)
+	uncompressed = append(uncompressed, 0x04)
+	uncompressed = append(uncompressed, padLeft(xBytes, SECP384R1KeySize)...)
+	uncompressed = append(uncompressed, padLeft(yBytes, SECP384R1KeySize)...)
 
-	if !elliptic.P384().IsOnCurve(x, y) {
-		return nil, errors.New("point is not on the P-384 curve")
+	// validate the point is on the curve
+	if _, err := ecdh.P384().NewPublicKey(uncompressed); err != nil {
+		return nil, fmt.Errorf("invalid public key: %w", err)
 	}
 
-	return elliptic.Marshal(elliptic.P384(), x, y), nil
+	return uncompressed, nil
 }
 
 func padLeft(b []byte, size int) []byte {
