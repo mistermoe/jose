@@ -13,6 +13,7 @@ const (
 
 var algorithmIDs = map[string]bool{
 	SECP256K1AlgorithmID: true,
+	SECP384R1AlgorithmID: true,
 }
 
 // GeneratePrivateKey generates an ECDSA private key for the given algorithm.
@@ -20,6 +21,8 @@ func GeneratePrivateKey(algorithmID string) (jwk.JWK, error) {
 	switch algorithmID {
 	case SECP256K1AlgorithmID:
 		return SECP256K1GeneratePrivateKey()
+	case SECP384R1AlgorithmID:
+		return SECP384R1GeneratePrivateKey()
 	default:
 		return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
 	}
@@ -48,6 +51,8 @@ func Sign(payload []byte, privateKey jwk.JWK) ([]byte, error) {
 	switch privateKey.CRV {
 	case SECP256K1JWACurve:
 		return SECP256K1Sign(payload, privateKey)
+	case SECP384R1JWACurve:
+		return SECP384R1Sign(payload, privateKey)
 	default:
 		return nil, fmt.Errorf("unsupported curve: %s", privateKey.CRV)
 	}
@@ -62,6 +67,8 @@ func Verify(payload []byte, signature []byte, publicKey jwk.JWK) (bool, error) {
 	switch publicKey.CRV {
 	case SECP256K1JWACurve:
 		return SECP256K1Verify(payload, signature, publicKey)
+	case SECP384R1JWACurve:
+		return SECP384R1Verify(payload, signature, publicKey)
 	default:
 		return false, fmt.Errorf("unsupported curve: %s", publicKey.CRV)
 	}
@@ -74,6 +81,8 @@ func GetJWA(jwk jwk.JWK) (string, error) {
 	switch jwk.CRV {
 	case SECP256K1JWACurve:
 		return SECP256K1JWA, nil
+	case SECP384R1JWACurve:
+		return SECP384R1JWA, nil
 	default:
 		return "", fmt.Errorf("unsupported curve: %s", jwk.CRV)
 	}
@@ -84,6 +93,8 @@ func BytesToPublicKey(algorithmID string, input []byte) (jwk.JWK, error) {
 	switch algorithmID {
 	case SECP256K1AlgorithmID:
 		return SECP256K1BytesToPublicKey(input)
+	case SECP384R1AlgorithmID:
+		return SECP384R1BytesToPublicKey(input)
 	default:
 		return jwk.JWK{}, fmt.Errorf("unsupported algorithm: %s", algorithmID)
 	}
@@ -94,6 +105,8 @@ func PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 	switch publicKey.CRV {
 	case SECP256K1JWACurve:
 		return SECP256K1PublicKeyToBytes(publicKey)
+	case SECP384R1JWACurve:
+		return SECP384R1PublicKeyToBytes(publicKey)
 	default:
 		return nil, fmt.Errorf("unsupported curve: %s", publicKey.CRV)
 	}
@@ -109,6 +122,8 @@ func AlgorithmID(jwk *jwk.JWK) (string, error) {
 	switch jwk.CRV {
 	case SECP256K1JWACurve:
 		return SECP256K1AlgorithmID, nil
+	case SECP384R1JWACurve:
+		return SECP384R1AlgorithmID, nil
 	default:
 		return "", fmt.Errorf("unsupported curve: %s", jwk.CRV)
 	}
