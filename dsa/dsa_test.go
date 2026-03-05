@@ -1,7 +1,15 @@
 package dsa_test
 
 import (
+	_ecdsa "crypto/ecdsa"
+	_ed25519 "crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
+	_rsa "crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"testing"
 
@@ -280,4 +288,185 @@ func TestVerifyWithProvidedJWTKeys(t *testing.T) {
 			assert.Equal(t, rsa.RS256AlgorithmID, algID)
 		})
 	}
+}
+
+func marshalPrivateKeyToPEM(t *testing.T, key any) []byte {
+	t.Helper()
+	der, err := x509.MarshalPKCS8PrivateKey(key)
+	assert.NoError(t, err)
+	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})
+}
+
+func marshalPublicKeyToPEM(t *testing.T, key any) []byte {
+	t.Helper()
+	der, err := x509.MarshalPKIXPublicKey(key)
+	assert.NoError(t, err)
+	return pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})
+}
+
+func TestPrivateKeyFromPEM_SECP384R1(t *testing.T) {
+	goKey, err := _ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPrivateKeyToPEM(t, goKey)
+	result, err := dsa.PrivateKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, ecdsa.KeyType, result.KTY)
+	assert.Equal(t, ecdsa.SECP384R1JWACurve, result.CRV)
+	assert.True(t, result.D != "", "D should be set")
+	assert.True(t, result.X != "", "X should be set")
+	assert.True(t, result.Y != "", "Y should be set")
+
+	dBytes, err := base64.RawURLEncoding.DecodeString(result.D)
+	assert.NoError(t, err)
+
+	goD := goKey.D.Bytes()
+	// strip leading zero-padding that the JWK encoder adds
+	for len(dBytes) > len(goD) && dBytes[0] == 0 {
+		dBytes = dBytes[1:]
+	}
+	assert.Equal(t, goD, dBytes)
+}
+
+func TestPrivateKeyFromPEM_SECP384R1_SEC1(t *testing.T) {
+	goKey, err := _ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	assert.NoError(t, err)
+
+	der, err := x509.MarshalECPrivateKey(goKey)
+	assert.NoError(t, err)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: der})
+
+	result, err := dsa.PrivateKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, ecdsa.KeyType, result.KTY)
+	assert.Equal(t, ecdsa.SECP384R1JWACurve, result.CRV)
+	assert.True(t, result.D != "", "D should be set")
+}
+
+func TestPrivateKeyFromPEM_Ed25519(t *testing.T) {
+	goPub, goPriv, err := _ed25519.GenerateKey(rand.Reader)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPrivateKeyToPEM(t, goPriv)
+	result, err := dsa.PrivateKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, eddsa.KeyType, result.KTY)
+	assert.Equal(t, eddsa.ED25519JWACurve, result.CRV)
+	assert.True(t, result.D != "", "D should be set")
+	assert.True(t, result.X != "", "X should be set")
+
+	xBytes, err := base64.RawURLEncoding.DecodeString(result.X)
+	assert.NoError(t, err)
+	assert.Equal(t, []byte(goPub), xBytes)
+}
+
+func TestPrivateKeyFromPEM_RSA(t *testing.T) {
+	goKey, err := _rsa.GenerateKey(rand.Reader, 2048)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPrivateKeyToPEM(t, goKey)
+	result, err := dsa.PrivateKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, rsa.KeyType, result.KTY)
+	assert.True(t, result.N != "", "N should be set")
+	assert.True(t, result.E != "", "E should be set")
+	assert.True(t, result.D != "", "D should be set")
+}
+
+func TestPrivateKeyFromPEM_RSA_PKCS1(t *testing.T) {
+	goKey, err := _rsa.GenerateKey(rand.Reader, 2048)
+	assert.NoError(t, err)
+
+	der := x509.MarshalPKCS1PrivateKey(goKey)
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: der})
+
+	result, err := dsa.PrivateKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, rsa.KeyType, result.KTY)
+	assert.True(t, result.D != "", "D should be set")
+}
+
+func TestPublicKeyFromPEM_SECP384R1(t *testing.T) {
+	goKey, err := _ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPublicKeyToPEM(t, &goKey.PublicKey)
+	result, err := dsa.PublicKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, ecdsa.KeyType, result.KTY)
+	assert.Equal(t, ecdsa.SECP384R1JWACurve, result.CRV)
+	assert.True(t, result.X != "", "X should be set")
+	assert.True(t, result.Y != "", "Y should be set")
+	assert.Equal(t, "", result.D)
+}
+
+func TestPublicKeyFromPEM_Ed25519(t *testing.T) {
+	goPub, _, err := _ed25519.GenerateKey(rand.Reader)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPublicKeyToPEM(t, goPub)
+	result, err := dsa.PublicKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, eddsa.KeyType, result.KTY)
+	assert.Equal(t, eddsa.ED25519JWACurve, result.CRV)
+	assert.True(t, result.X != "", "X should be set")
+	assert.Equal(t, "", result.D)
+}
+
+func TestPublicKeyFromPEM_RSA(t *testing.T) {
+	goKey, err := _rsa.GenerateKey(rand.Reader, 2048)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPublicKeyToPEM(t, &goKey.PublicKey)
+	result, err := dsa.PublicKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, rsa.KeyType, result.KTY)
+	assert.True(t, result.N != "", "N should be set")
+	assert.True(t, result.E != "", "E should be set")
+	assert.Equal(t, "", result.D)
+}
+
+func TestPrivateKeyFromPEM_InvalidPEM(t *testing.T) {
+	_, err := dsa.PrivateKeyFromPEM([]byte("not a pem"))
+	assert.Error(t, err)
+}
+
+func TestPublicKeyFromPEM_InvalidPEM(t *testing.T) {
+	_, err := dsa.PublicKeyFromPEM([]byte("not a pem"))
+	assert.Error(t, err)
+}
+
+func TestPrivateKeyFromPEM_UnsupportedCurve(t *testing.T) {
+	goKey, err := _ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPrivateKeyToPEM(t, goKey)
+	_, err = dsa.PrivateKeyFromPEM(pemBytes)
+	assert.Error(t, err)
+}
+
+func TestPrivateKeyFromPEM_SignVerifyRoundTrip(t *testing.T) {
+	goKey, err := _ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	assert.NoError(t, err)
+
+	pemBytes := marshalPrivateKeyToPEM(t, goKey)
+	privateJwk, err := dsa.PrivateKeyFromPEM(pemBytes)
+	assert.NoError(t, err)
+
+	payload := []byte("round trip test")
+	signature, err := dsa.Sign(payload, privateJwk)
+	assert.NoError(t, err)
+
+	publicJwk := dsa.GetPublicKey(privateJwk)
+	legit, err := dsa.Verify(payload, signature, publicJwk)
+	assert.NoError(t, err)
+	assert.True(t, legit, "signature should verify after PEM round-trip")
 }

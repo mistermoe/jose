@@ -1,6 +1,8 @@
 package ecdsa
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"errors"
 	"fmt"
 
@@ -109,6 +111,28 @@ func PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 		return SECP384R1PublicKeyToBytes(publicKey)
 	default:
 		return nil, fmt.Errorf("unsupported curve: %s", publicKey.CRV)
+	}
+}
+
+// PrivateJwkFromKey converts a *crypto/ecdsa.PrivateKey to a private jwk.JWK,
+// routing to the appropriate curve-specific converter.
+func PrivateJwkFromKey(key *ecdsa.PrivateKey) (jwk.JWK, error) {
+	switch key.Curve {
+	case elliptic.P384():
+		return SECP384R1PrivateJwkFromKey(key)
+	default:
+		return jwk.JWK{}, fmt.Errorf("unsupported curve: %s", key.Curve.Params().Name)
+	}
+}
+
+// PublicJwkFromKey converts a *crypto/ecdsa.PublicKey to a public jwk.JWK,
+// routing to the appropriate curve-specific converter.
+func PublicJwkFromKey(key *ecdsa.PublicKey) (jwk.JWK, error) {
+	switch key.Curve {
+	case elliptic.P384():
+		return SECP384R1PublicJwkFromKey(key)
+	default:
+		return jwk.JWK{}, fmt.Errorf("unsupported curve: %s", key.Curve.Params().Name)
 	}
 }
 

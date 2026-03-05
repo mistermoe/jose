@@ -153,6 +153,37 @@ func SECP384R1PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 	return uncompressed, nil
 }
 
+// SECP384R1PrivateJwkFromKey converts a *crypto/ecdsa.PrivateKey on the P-384
+// curve into a private jwk.JWK.
+func SECP384R1PrivateJwkFromKey(key *ecdsa.PrivateKey) (jwk.JWK, error) {
+	if key.Curve != elliptic.P384() {
+		return jwk.JWK{}, fmt.Errorf("expected P-384 curve, got %s", key.Curve.Params().Name)
+	}
+
+	return jwk.JWK{
+		KTY: KeyType,
+		CRV: SECP384R1JWACurve,
+		D:   base64.RawURLEncoding.EncodeToString(padLeft(key.D.Bytes(), SECP384R1KeySize)),
+		X:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.X.Bytes(), SECP384R1KeySize)),
+		Y:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.Y.Bytes(), SECP384R1KeySize)),
+	}, nil
+}
+
+// SECP384R1PublicJwkFromKey converts a *crypto/ecdsa.PublicKey on the P-384
+// curve into a public jwk.JWK.
+func SECP384R1PublicJwkFromKey(key *ecdsa.PublicKey) (jwk.JWK, error) {
+	if key.Curve != elliptic.P384() {
+		return jwk.JWK{}, fmt.Errorf("expected P-384 curve, got %s", key.Curve.Params().Name)
+	}
+
+	return jwk.JWK{
+		KTY: KeyType,
+		CRV: SECP384R1JWACurve,
+		X:   base64.RawURLEncoding.EncodeToString(padLeft(key.X.Bytes(), SECP384R1KeySize)),
+		Y:   base64.RawURLEncoding.EncodeToString(padLeft(key.Y.Bytes(), SECP384R1KeySize)),
+	}, nil
+}
+
 func padLeft(b []byte, size int) []byte {
 	if len(b) >= size {
 		return b

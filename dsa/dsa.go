@@ -1,6 +1,12 @@
 package dsa
 
 import (
+	_ecdsa "crypto/ecdsa"
+	_ed25519 "crypto/ed25519"
+	_rsa "crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
 
 	"github.com/mistermoe/jose/dsa/ecdsa"
@@ -111,6 +117,62 @@ func PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 		return rsa.PublicKeyToBytes(publicKey)
 	default:
 		return nil, fmt.Errorf("unsupported key type: %s", publicKey.KTY)
+	}
+}
+
+// PrivateKeyFromPEM parses a PEM-encoded private key and converts it to a jwk.JWK.
+// Supports PKCS#8 (all key types), SEC 1 (EC), and PKCS#1 (RSA) encodings.
+func PrivateKeyFromPEM(pemBytes []byte) (jwk.JWK, error) {
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return jwk.JWK{}, errors.New("failed to decode PEM block")
+	}
+
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		// Fall back to format-specific parsers
+		if ecKey, ecErr := x509.ParseECPrivateKey(block.Bytes); ecErr == nil {
+			key = ecKey
+		} else if rsaKey, rsaErr := x509.ParsePKCS1PrivateKey(block.Bytes); rsaErr == nil {
+			key = rsaKey
+		} else {
+			return jwk.JWK{}, fmt.Errorf("failed to parse private key: %w", err)
+		}
+	}
+
+	switch k := key.(type) {
+	case *_ecdsa.PrivateKey:
+		return ecdsa.PrivateJwkFromKey(k)
+	case _ed25519.PrivateKey:
+		return eddsa.PrivateJwkFromKey(k)
+	case *_rsa.PrivateKey:
+		return rsa.PrivateJwkFromKey(k)
+	default:
+		return jwk.JWK{}, fmt.Errorf("unsupported private key type: %T", key)
+	}
+}
+
+// PublicKeyFromPEM parses a PEM-encoded public key and converts it to a jwk.JWK.
+func PublicKeyFromPEM(pemBytes []byte) (jwk.JWK, error) {
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return jwk.JWK{}, errors.New("failed to decode PEM block")
+	}
+
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return jwk.JWK{}, fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	switch k := key.(type) {
+	case *_ecdsa.PublicKey:
+		return ecdsa.PublicJwkFromKey(k)
+	case _ed25519.PublicKey:
+		return eddsa.PublicJwkFromKey(k)
+	case *_rsa.PublicKey:
+		return rsa.PublicJwkFromKey(k)
+	default:
+		return jwk.JWK{}, fmt.Errorf("unsupported public key type: %T", key)
 	}
 }
 

@@ -3,6 +3,7 @@
 package eddsa
 
 import (
+	_ed25519 "crypto/ed25519"
 	"errors"
 	"fmt"
 
@@ -98,6 +99,16 @@ func PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported curve: %s", publicKey.CRV)
 	}
+}
+
+// PrivateJwkFromKey converts a crypto/ed25519.PrivateKey to a private jwk.JWK.
+func PrivateJwkFromKey(key _ed25519.PrivateKey) (jwk.JWK, error) {
+	return ED25519PrivateJwkFromKey(key)
+}
+
+// PublicJwkFromKey converts a crypto/ed25519.PublicKey to a public jwk.JWK.
+func PublicJwkFromKey(key _ed25519.PublicKey) (jwk.JWK, error) {
+	return ED25519PublicJwkFromKey(key)
 }
 
 // SupportsAlgorithmID informs as to whether or not the given algorithm ID is supported by this package.

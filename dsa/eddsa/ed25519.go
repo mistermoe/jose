@@ -52,6 +52,16 @@ func ED25519BytesToPrivateKey(privateKeyBytes []byte) (jwk.JWK, error) {
 	return privateJwk, nil
 }
 
+// ED25519PrivateJwkFromKey converts a crypto/ed25519.PrivateKey into a private jwk.JWK.
+func ED25519PrivateJwkFromKey(key _ed25519.PrivateKey) (jwk.JWK, error) {
+	return ED25519BytesToPrivateKey(key)
+}
+
+// ED25519PublicJwkFromKey converts a crypto/ed25519.PublicKey into a public jwk.JWK.
+func ED25519PublicJwkFromKey(key _ed25519.PublicKey) (jwk.JWK, error) {
+	return ED25519BytesToPublicKey(key)
+}
+
 // ED25519Sign signs the given payload with the given private key.
 func ED25519Sign(payload []byte, privateKey jwk.JWK) ([]byte, error) {
 	privateKeyBytes, err := base64.RawURLEncoding.DecodeString(privateKey.D)
