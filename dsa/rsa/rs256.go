@@ -97,6 +97,16 @@ func RS256PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(rsaPublicKey)
 }
 
+// RS256PrivateJwkFromKey converts a *crypto/rsa.PrivateKey into a private jwk.JWK.
+func RS256PrivateJwkFromKey(key *_rsa.PrivateKey) (jwk.JWK, error) {
+	return rsaPrivateKeyToJWK(key)
+}
+
+// RS256PublicJwkFromKey converts a *crypto/rsa.PublicKey into a public jwk.JWK.
+func RS256PublicJwkFromKey(key *_rsa.PublicKey) (jwk.JWK, error) {
+	return rsaPublicKeyToJWK(key)
+}
+
 // Helper functions for JWK conversion
 
 func rsaPrivateKeyToJWK(privateKey *_rsa.PrivateKey) (jwk.JWK, error) {

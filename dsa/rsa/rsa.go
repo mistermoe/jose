@@ -1,6 +1,7 @@
 package rsa
 
 import (
+	_rsa "crypto/rsa"
 	"errors"
 	"fmt"
 
@@ -85,6 +86,16 @@ func BytesToPublicKey(algorithmID string, input []byte) (jwk.JWK, error) {
 func PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 	// For now, we only support RS256
 	return RS256PublicKeyToBytes(publicKey)
+}
+
+// PrivateJwkFromKey converts a *crypto/rsa.PrivateKey to a private jwk.JWK.
+func PrivateJwkFromKey(key *_rsa.PrivateKey) (jwk.JWK, error) {
+	return RS256PrivateJwkFromKey(key)
+}
+
+// PublicJwkFromKey converts a *crypto/rsa.PublicKey to a public jwk.JWK.
+func PublicJwkFromKey(key *_rsa.PublicKey) (jwk.JWK, error) {
+	return RS256PublicJwkFromKey(key)
 }
 
 // SupportsAlgorithmID informs as to whether or not the given algorithm ID is supported by this package.
