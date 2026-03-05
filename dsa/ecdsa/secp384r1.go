@@ -36,6 +36,7 @@ func SECP384R1GeneratePrivateKey() (jwk.JWK, error) {
 	return jwk.JWK{
 		KTY: KeyType,
 		CRV: SECP384R1JWACurve,
+		ALG: SECP384R1JWA,
 		D:   base64.RawURLEncoding.EncodeToString(key.Bytes()),
 		X:   base64.RawURLEncoding.EncodeToString(pubBytes[1 : 1+SECP384R1KeySize]),
 		Y:   base64.RawURLEncoding.EncodeToString(pubBytes[1+SECP384R1KeySize:]),
@@ -166,6 +167,7 @@ func SECP384R1PrivateJwkFromKey(key *ecdsa.PrivateKey) (jwk.JWK, error) {
 	return jwk.JWK{
 		KTY: KeyType,
 		CRV: SECP384R1JWACurve,
+		ALG: SECP384R1JWA,
 		D:   base64.RawURLEncoding.EncodeToString(padLeft(key.D.Bytes())),
 		X:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.X.Bytes())),
 		Y:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.Y.Bytes())),
