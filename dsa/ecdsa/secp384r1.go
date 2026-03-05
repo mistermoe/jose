@@ -20,6 +20,9 @@ const (
 	SECP384R1AlgorithmID   string = "secp384r1"
 	SECP384R1KeySize              = 48
 	SECP384R1SignatureSize        = 96
+
+	// SEC1 uncompressed point prefix (0x04 || x || y).
+	uncompressedPointPrefix byte = 0x04
 )
 
 func SECP384R1GeneratePrivateKey() (jwk.JWK, error) {
@@ -45,7 +48,7 @@ func SECP384R1Sign(payload []byte, privateKey jwk.JWK) ([]byte, error) {
 		return nil, fmt.Errorf("failed to decode d: %w", err)
 	}
 
-	ecdhKey, err := ecdh.P384().NewPrivateKey(padLeft(dBytes, SECP384R1KeySize))
+	ecdhKey, err := ecdh.P384().NewPrivateKey(padLeft(dBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to reconstruct private key: %w", err)
 	}
@@ -68,8 +71,8 @@ func SECP384R1Sign(payload []byte, privateKey jwk.JWK) ([]byte, error) {
 	}
 
 	signature := make([]byte, SECP384R1SignatureSize)
-	copy(signature[:SECP384R1KeySize], padLeft(r.Bytes(), SECP384R1KeySize))
-	copy(signature[SECP384R1KeySize:], padLeft(s.Bytes(), SECP384R1KeySize))
+	copy(signature[:SECP384R1KeySize], padLeft(r.Bytes()))
+	copy(signature[SECP384R1KeySize:], padLeft(s.Bytes()))
 
 	return signature, nil
 }
@@ -141,12 +144,12 @@ func SECP384R1PublicKeyToBytes(publicKey jwk.JWK) ([]byte, error) {
 	}
 
 	uncompressed := make([]byte, 0, 1+2*SECP384R1KeySize)
-	uncompressed = append(uncompressed, 0x04)
-	uncompressed = append(uncompressed, padLeft(xBytes, SECP384R1KeySize)...)
-	uncompressed = append(uncompressed, padLeft(yBytes, SECP384R1KeySize)...)
+	uncompressed = append(uncompressed, uncompressedPointPrefix)
+	uncompressed = append(uncompressed, padLeft(xBytes)...)
+	uncompressed = append(uncompressed, padLeft(yBytes)...)
 
 	// validate the point is on the curve
-	if _, err := ecdh.P384().NewPublicKey(uncompressed); err != nil {
+	if _, err = ecdh.P384().NewPublicKey(uncompressed); err != nil {
 		return nil, fmt.Errorf("invalid public key: %w", err)
 	}
 
@@ -163,9 +166,9 @@ func SECP384R1PrivateJwkFromKey(key *ecdsa.PrivateKey) (jwk.JWK, error) {
 	return jwk.JWK{
 		KTY: KeyType,
 		CRV: SECP384R1JWACurve,
-		D:   base64.RawURLEncoding.EncodeToString(padLeft(key.D.Bytes(), SECP384R1KeySize)),
-		X:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.X.Bytes(), SECP384R1KeySize)),
-		Y:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.Y.Bytes(), SECP384R1KeySize)),
+		D:   base64.RawURLEncoding.EncodeToString(padLeft(key.D.Bytes())),
+		X:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.X.Bytes())),
+		Y:   base64.RawURLEncoding.EncodeToString(padLeft(key.PublicKey.Y.Bytes())),
 	}, nil
 }
 
@@ -179,16 +182,16 @@ func SECP384R1PublicJwkFromKey(key *ecdsa.PublicKey) (jwk.JWK, error) {
 	return jwk.JWK{
 		KTY: KeyType,
 		CRV: SECP384R1JWACurve,
-		X:   base64.RawURLEncoding.EncodeToString(padLeft(key.X.Bytes(), SECP384R1KeySize)),
-		Y:   base64.RawURLEncoding.EncodeToString(padLeft(key.Y.Bytes(), SECP384R1KeySize)),
+		X:   base64.RawURLEncoding.EncodeToString(padLeft(key.X.Bytes())),
+		Y:   base64.RawURLEncoding.EncodeToString(padLeft(key.Y.Bytes())),
 	}, nil
 }
 
-func padLeft(b []byte, size int) []byte {
-	if len(b) >= size {
+func padLeft(b []byte) []byte {
+	if len(b) >= SECP384R1KeySize {
 		return b
 	}
-	padded := make([]byte, size)
-	copy(padded[size-len(b):], b)
+	padded := make([]byte, SECP384R1KeySize)
+	copy(padded[SECP384R1KeySize-len(b):], b)
 	return padded
 }
