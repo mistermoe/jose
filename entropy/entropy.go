@@ -12,6 +12,7 @@ type Size int
 // Directly set the sizes according to NIST recommendations for entropy
 // defined here: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf
 const (
+	Size96  Size = 96 / 8  // 12 bytes
 	Size112 Size = 112 / 8 // 14 bytes
 	Size128 Size = 128 / 8 // 16 bytes
 	Size192 Size = 192 / 8 // 24 bytes
