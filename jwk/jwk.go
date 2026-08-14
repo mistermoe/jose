@@ -22,6 +22,8 @@ type JWK struct {
 	// RSA key parameters
 	N string `json:"n,omitempty"` // RSA modulus
 	E string `json:"e,omitempty"` // RSA exponent
+	// Symmetric key parameters
+	K string `json:"k,omitempty"` // symmetric key value
 }
 
 // ComputeThumbprint computes the JWK thumbprint as per RFC7638 (https://tools.ietf.org/html/rfc7638)
@@ -35,6 +37,12 @@ func (j JWK) ComputeThumbprint() (string, error) {
 			"e":   j.E,
 			"kty": j.KTY,
 			"n":   j.N,
+		}
+	case "oct":
+		// For symmetric keys, use "k", "kty" as per RFC 7638
+		thumbprintPayload = map[string]interface{}{
+			"k":   j.K,
+			"kty": j.KTY,
 		}
 	case "EC", "OKP":
 		// For elliptic curve and OKP keys, use existing logic

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mistermoe/jose/jwe"
 	"github.com/mistermoe/jose/jwk"
 	"github.com/mistermoe/jose/jws"
 )
@@ -96,7 +97,55 @@ func Verify(jwt string, publicJwk jwk.JWK) (Decoded, error) {
 	return decodedJWT, err
 }
 
+// Encrypt encrypts the provided claims using the provided jwk and returns a compact JWE.
+//
+// # Note
+//
+// The provided jwk is used directly as the content encryption key. See
+// [github.com/mistermoe/jose/jwe.Encrypt] for more details.
+func Encrypt(claims Claims, key jwk.JWK) (string, error) {
+	payload, err := json.Marshal(claims)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal jwt claims: %w", err)
+	}
+
+	return jwe.Encrypt(payload, key, jwe.Type("JWT"))
+}
+
+// Decrypt decrypts the provided encrypted jwt using the provided jwk. It also checks expiration.
+func Decrypt(encryptedJWT string, key jwk.JWK) (Decrypted, error) {
+	decryptedJWE, err := jwe.Decrypt(encryptedJWT, key)
+	if err != nil {
+		return Decrypted{}, err
+	}
+
+	claims := Claims{}
+
+	err = json.Unmarshal(decryptedJWE.Payload, &claims)
+	if err != nil {
+		return Decrypted{}, fmt.Errorf("malformed encrypted JWT. Failed to unmarshal claims: %w", err)
+	}
+
+	err = validateClaims(claims)
+	if err != nil {
+		return Decrypted{}, err
+	}
+
+	return Decrypted{
+		Header: decryptedJWE.Header,
+		Claims: claims,
+		Parts:  decryptedJWE.Parts,
+	}, nil
+}
+
 type Header = jws.Header
+
+// Decrypted represents an encrypted JWT decrypted into it's relevant parts.
+type Decrypted struct {
+	Header jwe.Header
+	Claims Claims
+	Parts  []string
+}
 
 // Decoded represents a JWT Decoded into it's relevant parts.
 type Decoded struct {
@@ -108,8 +157,8 @@ type Decoded struct {
 
 // Verify verifies a JWT (JSON Web Token).
 func (jwt Decoded) Verify(publicJwk jwk.JWK) error {
-	if jwt.Claims.Expiration != 0 && time.Now().Unix() > jwt.Claims.Expiration {
-		return errors.New("JWT has expired")
+	if err := validateClaims(jwt.Claims); err != nil {
+		return err
 	}
 
 	claimsBytes, err := base64.RawURLEncoding.DecodeString(jwt.Parts[1])
@@ -233,6 +282,15 @@ func (c *Claims) UnmarshalJSON(b []byte) error {
 
 // cpy is a copy of Claims that is used to marshal/unmarshal the claims without infinitely looping.
 type cpy Claims
+
+// validateClaims checks the time based claims.
+func validateClaims(claims Claims) error {
+	if claims.Expiration != 0 && time.Now().Unix() > claims.Expiration {
+		return errors.New("JWT has expired")
+	}
+
+	return nil
+}
 
 // ExpiresIn returns the provided duration as seconds since epoch. This function is useful when
 // setting the `Expiration` claim.
